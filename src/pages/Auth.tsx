@@ -41,9 +41,6 @@ const Auth = () => {
   const [identifier, setIdentifier] = useState('');
   const [signInPassword, setSignInPassword] = useState('');
 
-  // Hardcoded librarian credentials
-  const LIBRARIAN_ID = 'LIB001';
-  const LIBRARIAN_PASSWORD = 'librarian123';
 
   useEffect(() => {
     if (user && userRole) {
@@ -112,33 +109,26 @@ const Auth = () => {
 
       setLoading(true);
 
-      // Check if librarian
-      if (role === 'librarian') {
-        if (validated.identifier === LIBRARIAN_ID && validated.password === LIBRARIAN_PASSWORD) {
-          // For librarian, we need to sign in with a special account
-          // In a real app, this would be handled differently
-          toast.error('Librarian functionality requires backend setup. Please contact admin.');
-        } else {
-          toast.error('Invalid librarian credentials');
-        }
-        setLoading(false);
-        return;
-      }
+      let emailToUse = validated.identifier;
 
       // For students, find by student_id
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('email')
-        .eq('student_id', validated.identifier)
-        .single();
+      // For librarians, use email directly
+      if (role === 'student') {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('student_id', validated.identifier)
+          .single();
 
-      if (profileError || !profileData) {
-        toast.error('Invalid student ID or password');
-        setLoading(false);
-        return;
+        if (profileError || !profileData) {
+          toast.error('Invalid student ID or password');
+          setLoading(false);
+          return;
+        }
+        emailToUse = profileData.email;
       }
 
-      const { error } = await signIn(profileData.email, validated.password);
+      const { error } = await signIn(emailToUse, validated.password);
 
       if (error) {
         toast.error('Invalid credentials');
@@ -198,13 +188,14 @@ const Auth = () => {
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="identifier">
-                      {role === 'student' ? 'Student ID' : 'Librarian ID'}
+                      {role === 'student' ? 'Student ID' : 'Email'}
                     </Label>
                     <Input
                       id="identifier"
+                      type={role === 'librarian' ? 'email' : 'text'}
                       value={identifier}
                       onChange={(e) => setIdentifier(e.target.value)}
-                      placeholder={role === 'student' ? 'Enter your student ID' : 'Enter librarian ID'}
+                      placeholder={role === 'student' ? 'Enter your student ID' : 'Enter your email'}
                       required
                     />
                   </div>
@@ -291,9 +282,14 @@ const Auth = () => {
         </Card>
         
         {role === 'librarian' && (
-          <p className="text-center text-sm text-muted-foreground mt-4">
-            Contact administrator for librarian access
-          </p>
+          <div className="mt-4 p-4 bg-muted rounded-lg">
+            <p className="text-center text-sm text-muted-foreground">
+              <strong>Librarian Access:</strong> Use your registered email and password to sign in.
+            </p>
+            <p className="text-center text-xs text-muted-foreground mt-2">
+              Contact administrator if you need librarian role assignment.
+            </p>
+          </div>
         )}
       </div>
     </div>
